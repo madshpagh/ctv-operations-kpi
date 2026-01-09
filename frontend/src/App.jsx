@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API = "https://DIN-BACKEND-URL"; // <-- ændres senere
+const API = import.meta.env.VITE_API_URL;
 
 export default function App() {
   const [vessels, setVessels] = useState([]);
@@ -151,3 +151,4 @@ export default function App() {
     </div>
   );
 }
+
