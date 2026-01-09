@@ -16,12 +16,13 @@ export default function App() {
     fetch(`${API}/daily-reports`).then(r => r.json()).then(setReports);
   }, []);
 
-  const loadOperations = async (report) => {
-    setSelectedReport(report);
-    const ops = await fetch(`${API}/operations/${report.id}`).then(r => r.json());
-    setOperations(ops);
-  };
-
+const loadOperations = async (report) => {
+  setSelectedReport(report);
+  const res = await fetch(`${API}/operations/${report.id}/`);
+  const data = await res.json();
+  setOperations(Array.isArray(data) ? data : []);
+};
+  
   const addOperation = async () => {
     if (!start || !end) return;
 
@@ -93,3 +94,4 @@ export default function App() {
     </div>
   );
 }
+
