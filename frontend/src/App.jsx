@@ -1,3 +1,6 @@
+const [newVessel, setNewVessel] = useState("");
+const [newProject, setNewProject] = useState("");
+
 import React, { useEffect, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL;
@@ -151,5 +154,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
