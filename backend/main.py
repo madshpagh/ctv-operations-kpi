@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from datetime import date, time, datetime
@@ -8,6 +9,16 @@ import io
 from openpyxl import Workbook
 
 app = FastAPI(title="CTV Operations KPI System")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://ctv-operations-kpi.vercel.app"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 @app.on_event("startup")
 def startup():
@@ -219,3 +230,4 @@ def monthly_overview_excel(vessel_id: int, project_id: int, year: int, month: in
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
