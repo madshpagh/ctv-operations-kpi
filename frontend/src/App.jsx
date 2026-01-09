@@ -155,5 +155,31 @@ export default function App() {
   );
 }
 
+const createVessel = async () => {
+  if (!newVessel) return;
+
+  await fetch(`${API}/vessels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: newVessel })
+  });
+
+  setNewVessel("");
+  fetch(`${API}/vessels`).then(r => r.json()).then(setVessels);
+};
+
+const createProject = async () => {
+  if (!newProject) return;
+
+  await fetch(`${API}/projects`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: newProject })
+  });
+
+  setNewProject("");
+  fetch(`${API}/projects`).then(r => r.json()).then(setProjects);
+};
+
 
 
