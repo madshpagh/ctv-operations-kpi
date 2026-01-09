@@ -5,15 +5,18 @@ import sqlite3
 
 app = FastAPI()
 
-# ---------- CORS ----------
+# ===== CORS (VIGTIGT: SKAL STÅ HER) =====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ctv-operations-kpi.vercel.app"],
+    allow_origins=[
+        "https://ctv-operations-kpi.vercel.app"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------- DATABASE ----------
+# ===== DATABASE =====
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
@@ -33,14 +36,14 @@ CREATE TABLE IF NOT EXISTS projects (
 
 conn.commit()
 
-# ---------- MODELS ----------
+# ===== MODELS =====
 class VesselIn(BaseModel):
     name: str
 
 class ProjectIn(BaseModel):
     name: str
 
-# ---------- ENDPOINTS ----------
+# ===== ENDPOINTS =====
 @app.get("/vessels")
 def get_vessels():
     rows = cursor.execute("SELECT id, name FROM vessels").fetchall()
@@ -48,7 +51,10 @@ def get_vessels():
 
 @app.post("/vessels")
 def create_vessel(vessel: VesselIn):
-    cursor.execute("INSERT INTO vessels (name) VALUES (?)", (vessel.name,))
+    cursor.execute(
+        "INSERT INTO vessels (name) VALUES (?)",
+        (vessel.name,)
+    )
     conn.commit()
     return {"status": "ok"}
 
@@ -59,6 +65,9 @@ def get_projects():
 
 @app.post("/projects")
 def create_project(project: ProjectIn):
-    cursor.execute("INSERT INTO projects (name) VALUES (?)", (project.name,))
+    cursor.execute(
+        "INSERT INTO projects (name) VALUES (?)",
+        (project.name,)
+    )
     conn.commit()
     return {"status": "ok"}
