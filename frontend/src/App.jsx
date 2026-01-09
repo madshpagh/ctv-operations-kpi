@@ -26,7 +26,7 @@ const loadOperations = async (report) => {
   const addOperation = async () => {
     if (!start || !end) return;
 
-    await fetch(`${API}/operations`, {
+    await fetch(`${API}/operations/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -94,4 +94,5 @@ const loadOperations = async (report) => {
     </div>
   );
 }
+
 
