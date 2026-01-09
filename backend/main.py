@@ -1,117 +1,124 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import sqlite3
+import React, { useEffect, useState } from "react";
 
-app = FastAPI()
+const API = import.meta.env.VITE_API_URL;
 
-# ===== CORS =====
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://ctv-operations-kpi.vercel.app"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+export default function App() {
+  const [vessels, setVessels] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [reports, setReports] = useState([]);
 
-# ===== DATABASE =====
-conn = sqlite3.connect("database.db", check_same_thread=False)
-cursor = conn.cursor()
+  const [newVessel, setNewVessel] = useState("");
+  const [newProject, setNewProject] = useState("");
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS vessels (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
-)
-""")
+  const [vesselId, setVesselId] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [date, setDate] = useState("");
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS projects (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
-)
-""")
+  useEffect(() => {
+    loadMasterData();
+    loadReports();
+  }, []);
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS daily_reports (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    vessel_id INTEGER NOT NULL,
-    project_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    UNIQUE(vessel_id, project_id, date)
-)
-""")
+  const loadMasterData = async () => {
+    setVessels(await fetch(`${API}/vessels`).then(r => r.json()));
+    setProjects(await fetch(`${API}/projects`).then(r => r.json()));
+  };
 
-conn.commit()
+  const loadReports = async () => {
+    setReports(await fetch(`${API}/daily-reports`).then(r => r.json()));
+  };
 
-# ===== MODELS =====
-class VesselIn(BaseModel):
-    name: str
+  const createVessel = async () => {
+    if (!newVessel) return;
+    await fetch(`${API}/vessels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newVessel })
+    });
+    setNewVessel("");
+    loadMasterData();
+  };
 
-class ProjectIn(BaseModel):
-    name: str
+  const createProject = async () => {
+    if (!newProject) return;
+    await fetch(`${API}/projects`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newProject })
+    });
+    setNewProject("");
+    loadMasterData();
+  };
 
-class DailyReportIn(BaseModel):
-    vessel_id: int
-    project_id: int
-    date: str
+  const createDailyReport = async () => {
+    await fetch(`${API}/daily-reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        vessel_id: Number(vesselId),
+        project_id: Number(projectId),
+        date
+      })
+    });
+    setDate("");
+    loadReports();
+  };
 
-# ===== VESSELS =====
-@app.get("/vessels")
-def get_vessels():
-    rows = cursor.execute("SELECT id, name FROM vessels").fetchall()
-    return [{"id": r[0], "name": r[1]} for r in rows]
+  return (
+    <div style={{ padding: 30, maxWidth: 1000 }}>
+      <h1>CTV Operations KPI</h1>
 
-@app.post("/vessels")
-def create_vessel(vessel: VesselIn):
-    cursor.execute("INSERT INTO vessels (name) VALUES (?)", (vessel.name,))
-    conn.commit()
-    return {"status": "ok"}
+      <h2>Master data</h2>
+      <div style={{ display: "flex", gap: 40 }}>
+        <div>
+          <h4>Opret skib</h4>
+          <input value={newVessel} onChange={e => setNewVessel(e.target.value)} />
+          <button onClick={createVessel}>Opret</button>
+        </div>
 
-# ===== PROJECTS =====
-@app.get("/projects")
-def get_projects():
-    rows = cursor.execute("SELECT id, name FROM projects").fetchall()
-    return [{"id": r[0], "name": r[1]} for r in rows]
+        <div>
+          <h4>Opret projekt</h4>
+          <input value={newProject} onChange={e => setNewProject(e.target.value)} />
+          <button onClick={createProject}>Opret</button>
+        </div>
+      </div>
 
-@app.post("/projects")
-def create_project(project: ProjectIn):
-    cursor.execute("INSERT INTO projects (name) VALUES (?)", (project.name,))
-    conn.commit()
-    return {"status": "ok"}
+      <hr />
 
-# ===== DAILY REPORTS =====
-@app.post("/daily-reports")
-def create_daily_report(report: DailyReportIn):
-    try:
-        cursor.execute(
-            "INSERT INTO daily_reports (vessel_id, project_id, date) VALUES (?, ?, ?)",
-            (report.vessel_id, report.project_id, report.date)
-        )
-        conn.commit()
-    except sqlite3.IntegrityError:
-        raise HTTPException(
-            status_code=400,
-            detail="Daily report already exists for this vessel/project/date"
-        )
+      <h2>Daglig rapport</h2>
+      <select value={vesselId} onChange={e => setVesselId(e.target.value)}>
+        <option value="">Vælg skib</option>
+        {vessels.map(v => (
+          <option key={v.id} value={v.id}>{v.name}</option>
+        ))}
+      </select>
 
-    return {"status": "ok"}
+      <select value={projectId} onChange={e => setProjectId(e.target.value)}>
+        <option value="">Vælg projekt</option>
+        {projects.map(p => (
+          <option key={p.id} value={p.id}>{p.name}</option>
+        ))}
+      </select>
 
-@app.get("/daily-reports")
-def list_daily_reports():
-    rows = cursor.execute("""
-        SELECT dr.id, v.name, p.name, dr.date
-        FROM daily_reports dr
-        JOIN vessels v ON v.id = dr.vessel_id
-        JOIN projects p ON p.id = dr.project_id
-        ORDER BY dr.date DESC
-    """).fetchall()
+      <input type="date" value={date} onChange={e => setDate(e.target.value)} />
 
-    return [
-        {
-            "id": r[0],
-            "vessel": r[1],
-            "project": r[2],
-            "date": r[3]
-        }
-        for r in rows
-    ]
+      <button
+        onClick={createDailyReport}
+        disabled={!vesselId || !projectId || !date}
+      >
+        Opret dag
+      </button>
+
+      <hr />
+
+      <h3>Oprettede dage</h3>
+      <ul>
+        {reports.map(r => (
+          <li key={r.id}>
+            {r.date} – {r.vessel} – {r.project}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
