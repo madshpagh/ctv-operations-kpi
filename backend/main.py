@@ -210,3 +210,74 @@ def create_operation(op: OperationIn):
 
     conn.commit()
     return {"status": "ok"}
+
+from openpyxl import Workbook
+from fastapi.responses import StreamingResponse
+import io
+
+@app.get("/projects/{project_id}/kpi/{year}/{month}/excel")
+@app.get("/projects/{project_id}/kpi/{year}/{month}/excel/")
+def export_kpi_excel(project_id: int, year: int, month: int):
+    rows = cursor.execute("""
+        SELECT
+            v.name,
+            o.operation_type,
+            o.start_time,
+            o.end_time
+        FROM operations o
+        JOIN daily_reports dr ON dr.id = o.daily_report_id
+        JOIN vessels v ON v.id = dr.vessel_id
+        WHERE
+            dr.project_id = ?
+            AND strftime('%Y', dr.date) = ?
+            AND strftime('%m', dr.date) = ?
+    """, (project_id, str(year), f"{month:02d}")).fetchall()
+
+    data = {}
+
+    for vessel, op_type, start, end in rows:
+        start_dt = datetime.strptime(start, "%H:%M")
+        end_dt = datetime.strptime(end, "%H:%M")
+        minutes = int((end_dt - start_dt).total_seconds() / 60)
+
+        if vessel not in data:
+            data[vessel] = {}
+
+        data[vessel][op_type] = data[vessel].get(op_type, 0) + minutes
+
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    for vessel, ops in data.items():
+        ws = wb.create_sheet(title=vessel[:31])
+        ws.append(["Operation", "Tid (min)", "Tid (hh:mm)"])
+
+        total = 0
+        for op, minutes in ops.items():
+            total += minutes
+            ws.append([
+                op,
+                minutes,
+                f"{minutes // 60:02d}:{minutes % 60:02d}"
+            ])
+
+        ws.append([])
+        ws.append([
+            "TOTAL",
+            total,
+            f"{total // 60:02d}:{total % 60:02d}"
+        ])
+
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+
+    filename = f"KPI_Project_{project_id}_{year}-{month:02d}.xlsx"
+
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
