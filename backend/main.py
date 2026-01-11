@@ -1,7 +1,9 @@
+datetime.strptime(start, "%H:%M")
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sqlite3
+from datetime import datetime
 
 # ======================================================
 # APP
@@ -281,3 +283,4 @@ def export_kpi_excel(project_id: int, year: int, month: int):
             "Content-Disposition": f"attachment; filename={filename}"
         }
     )
+
