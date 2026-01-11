@@ -3,14 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import sqlite3
 
-# =========================
+# ======================================================
 # APP
-# =========================
+# ======================================================
 app = FastAPI()
 
-# =========================
+# ======================================================
 # CORS
-# =========================
+# ======================================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://ctv-operations-kpi.vercel.app"],
@@ -18,16 +18,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================
+# ======================================================
 # DATABASE
-# =========================
+# ======================================================
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS vessels (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
+    name TEXT NOT NULL,
+    vessel_type TEXT NOT NULL
 )
 """)
 
@@ -54,21 +55,20 @@ CREATE TABLE IF NOT EXISTS operations (
     daily_report_id INTEGER NOT NULL,
     start_time TEXT NOT NULL,
     end_time TEXT NOT NULL,
-    status TEXT NOT NULL,
-    downtime_reason TEXT
+    operation_type TEXT NOT NULL,
+    comment TEXT
 )
 """)
 
 conn.commit()
 
-# =========================
+# ======================================================
 # MODELS
-# =========================
-class VesselIn(BaseModel):
-    name: str
-
-class ProjectIn(BaseModel):
-    name: str
+# ======================================================
+class SetupIn(BaseModel):
+    vessel_name: str
+    vessel_type: str  # CTV / SOV / IV
+    project_name: str
 
 class DailyReportIn(BaseModel):
     vessel_id: int
@@ -79,90 +79,104 @@ class OperationIn(BaseModel):
     daily_report_id: int
     start_time: str
     end_time: str
-    status: str
-    downtime_reason: str | None = None
+    operation_type: str
+    comment: str | None = None
 
-# =========================
-# VESSELS
-# =========================
-@app.get("/vessels")
-@app.get("/vessels/")
-def get_vessels():
-    rows = cursor.execute("SELECT id, name FROM vessels").fetchall()
-    return [{"id": r[0], "name": r[1]} for r in rows]
+# ======================================================
+# SETUP (ONE-CLICK CREATE)
+# ======================================================
+@app.post("/setup")
+@app.post("/setup/")
+def create_setup(data: SetupIn):
+    # project
+    cursor.execute(
+        "INSERT OR IGNORE INTO projects (name) VALUES (?)",
+        (data.project_name,)
+    )
 
-@app.post("/vessels")
-@app.post("/vessels/")
-def create_vessel(vessel: VesselIn):
-    cursor.execute("INSERT INTO vessels (name) VALUES (?)", (vessel.name,))
+    cursor.execute(
+        "SELECT id FROM projects WHERE name = ?",
+        (data.project_name,)
+    )
+    project_id = cursor.fetchone()[0]
+
+    # vessel
+    cursor.execute("""
+        INSERT OR IGNORE INTO vessels (name, vessel_type)
+        VALUES (?, ?)
+    """, (data.vessel_name, data.vessel_type))
+
+    cursor.execute("""
+        SELECT id FROM vessels
+        WHERE name = ? AND vessel_type = ?
+    """, (data.vessel_name, data.vessel_type))
+    vessel_id = cursor.fetchone()[0]
+
     conn.commit()
-    return {"status": "ok"}
 
-# =========================
+    return {
+        "vessel_id": vessel_id,
+        "project_id": project_id
+    }
+
+# ======================================================
 # PROJECTS
-# =========================
+# ======================================================
 @app.get("/projects")
 @app.get("/projects/")
 def get_projects():
-    rows = cursor.execute("SELECT id, name FROM projects").fetchall()
+    rows = cursor.execute("SELECT id, name FROM projects ORDER BY name").fetchall()
     return [{"id": r[0], "name": r[1]} for r in rows]
 
-@app.post("/projects")
-@app.post("/projects/")
-def create_project(project: ProjectIn):
-    cursor.execute("INSERT INTO projects (name) VALUES (?)", (project.name,))
-    conn.commit()
-    return {"status": "ok"}
-
-# =========================
-# DAILY REPORTS
-# =========================
-@app.post("/daily-reports")
-@app.post("/daily-reports/")
-def create_daily_report(report: DailyReportIn):
-    try:
-        cursor.execute(
-            "INSERT INTO daily_reports (vessel_id, project_id, date) VALUES (?, ?, ?)",
-            (report.vessel_id, report.project_id, report.date)
-        )
-        conn.commit()
-    except sqlite3.IntegrityError:
-        raise HTTPException(
-            status_code=400,
-            detail="Daily report already exists for this vessel/project/date"
-        )
-
-    return {"status": "ok"}
-
-@app.get("/daily-reports")
-@app.get("/daily-reports/")
-def list_daily_reports():
+# ======================================================
+# DAILY REPORTS (FILTER BY PROJECT)
+# ======================================================
+@app.get("/projects/{project_id}/daily-reports")
+@app.get("/projects/{project_id}/daily-reports/")
+def get_project_daily_reports(project_id: int):
     rows = cursor.execute("""
-        SELECT dr.id, v.name, p.name, dr.date
+        SELECT dr.id, dr.date, v.name, v.vessel_type
         FROM daily_reports dr
         JOIN vessels v ON v.id = dr.vessel_id
-        JOIN projects p ON p.id = dr.project_id
-        ORDER BY dr.date DESC
-    """).fetchall()
+        WHERE dr.project_id = ?
+        ORDER BY v.name, dr.date DESC
+    """, (project_id,)).fetchall()
 
     return [
         {
             "id": r[0],
-            "vessel": r[1],
-            "project": r[2],
-            "date": r[3]
+            "date": r[1],
+            "vessel": r[2],
+            "vessel_type": r[3]
         }
         for r in rows
     ]
 
-# =========================
-# OPERATIONS  ✅ VIGTIG DEL
-# =========================
+@app.post("/daily-reports")
+@app.post("/daily-reports/")
+def create_daily_report(report: DailyReportIn):
+    try:
+        cursor.execute("""
+            INSERT INTO daily_reports (vessel_id, project_id, date)
+            VALUES (?, ?, ?)
+        """, (report.vessel_id, report.project_id, report.date))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise HTTPException(
+            status_code=400,
+            detail="Daily report already exists"
+        )
+
+    return {"status": "ok"}
+
+# ======================================================
+# OPERATIONS
+# ======================================================
 @app.get("/operations/{daily_report_id}")
 @app.get("/operations/{daily_report_id}/")
 def get_operations(daily_report_id: int):
     rows = cursor.execute("""
-        SELECT id, start_time, end_time, status, downtime_reason
+        SELECT id, start_time, end_time, operation_type, comment
         FROM operations
         WHERE daily_report_id = ?
         ORDER BY start_time
@@ -173,8 +187,8 @@ def get_operations(daily_report_id: int):
             "id": r[0],
             "start_time": r[1],
             "end_time": r[2],
-            "status": r[3],
-            "downtime_reason": r[4]
+            "operation_type": r[3],
+            "comment": r[4]
         }
         for r in rows
     ]
@@ -182,27 +196,16 @@ def get_operations(daily_report_id: int):
 @app.post("/operations")
 @app.post("/operations/")
 def create_operation(op: OperationIn):
-    count = cursor.execute(
-        "SELECT COUNT(*) FROM operations WHERE daily_report_id = ?",
-        (op.daily_report_id,)
-    ).fetchone()[0]
-
-    if count >= 100:
-        raise HTTPException(
-            status_code=400,
-            detail="Max 100 operations per day"
-        )
-
     cursor.execute("""
         INSERT INTO operations
-        (daily_report_id, start_time, end_time, status, downtime_reason)
+        (daily_report_id, start_time, end_time, operation_type, comment)
         VALUES (?, ?, ?, ?, ?)
     """, (
         op.daily_report_id,
         op.start_time,
         op.end_time,
-        op.status,
-        op.downtime_reason
+        op.operation_type,
+        op.comment
     ))
 
     conn.commit()
