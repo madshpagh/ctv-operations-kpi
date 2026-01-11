@@ -234,3 +234,16 @@ export default function App() {
     </div>
   );
 }
+
+<button
+  onClick={() => {
+    if (!selectedProject || !kpiMonth) return;
+    const [year, month] = kpiMonth.split("-");
+    window.open(
+      `${API}/projects/${selectedProject}/kpi/${year}/${month}/excel/`,
+      "_blank"
+    );
+  }}
+>
+  Download Excel
+</button>
