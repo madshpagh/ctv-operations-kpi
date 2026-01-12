@@ -65,30 +65,77 @@ conn.commit()
 # =========================
 # SETUP (one-click)
 # =========================
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from datetime import date as DateType
+
 @app.post("/setup/")
-def setup(data: dict):
-    vessel_name = data["vessel_name"]
-    vessel_type = data["vessel_type"]
-    project_name = data["project_name"]
+def setup(
+    vessel_name: str,
+    vessel_type: str,
+    project_name: str,
+    date: DateType,
+    db: Session = Depends(get_db)
+):
+    # 1️⃣ Find eller opret projekt
+    project = db.query(Project).filter(Project.name == project_name).first()
+    if not project:
+        project = Project(name=project_name)
+        db.add(project)
+        db.commit()
+        db.refresh(project)
 
-    cursor.execute(
-        "INSERT INTO vessels (name, vessel_type) VALUES (?, ?)",
-        (vessel_name, vessel_type)
+    # 2️⃣ Find eller opret skib under projekt
+    vessel = (
+        db.query(Vessel)
+        .filter(
+            Vessel.name == vessel_name,
+            Vessel.project_id == project.id
+        )
+        .first()
     )
-    vessel_id = cursor.lastrowid
 
-    cursor.execute(
-        "INSERT INTO projects (name) VALUES (?)",
-        (project_name,)
+    if not vessel:
+        vessel = Vessel(
+            name=vessel_name,
+            vessel_type=vessel_type,
+            project_id=project.id
+        )
+        db.add(vessel)
+        db.commit()
+        db.refresh(vessel)
+
+    # 3️⃣ Find eller opret daglig rapport
+    report = (
+        db.query(DailyReport)
+        .filter(
+            DailyReport.project_id == project.id,
+            DailyReport.vessel_id == vessel.id,
+            DailyReport.date == date
+        )
+        .first()
     )
-    project_id = cursor.lastrowid
 
-    conn.commit()
+    if not report:
+        report = DailyReport(
+            project_id=project.id,
+            vessel_id=vessel.id,
+            date=date
+        )
+        db.add(report)
+        db.commit()
+        db.refresh(report)
 
     return {
-        "vessel_id": vessel_id,
-        "project_id": project_id
+        "project_id": project.id,
+        "project_name": project.name,
+        "vessel_id": vessel.id,
+        "vessel_name": vessel.name,
+        "vessel_type": vessel.vessel_type,
+        "daily_report_id": report.id,
+        "date": report.date
     }
+
 
 # =========================
 # PROJECTS
@@ -282,4 +329,5 @@ def export_kpi_excel(project_id: int, year: int, month: int):
             f"attachment; filename=KPI_Project_{project_id}_{year}-{month:02d}.xlsx"
         }
     )
+
 
