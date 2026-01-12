@@ -29,6 +29,25 @@ export default function App() {
   const [reports, setReports] = useState([]);
   const [date, setDate] = useState("");
 
+  <h2>KPI (måned)</h2>
+
+<label>
+  Vælg måned:&nbsp;
+  <input
+    type="month"
+    value={kpiMonth}
+    onChange={(e) => setKpiMonth(e.target.value)}
+  />
+</label>
+
+<button
+  disabled={!selectedProject || !kpiMonth}
+  onClick={downloadKpiExcel}
+  style={{ marginLeft: "10px" }}
+>
+  Download KPI (Excel)
+</button>
+
   // =====================
   // OPERATIONS
   // =====================
@@ -247,3 +266,4 @@ export default function App() {
 >
   Download Excel
 </button>
+
