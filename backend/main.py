@@ -232,23 +232,31 @@ def export_kpi_excel(project_id: int, year: int, month: int):
         data[vessel][op_type] = data[vessel].get(op_type, 0) + minutes
 
     wb = Workbook()
-    wb.remove(wb.active)
+    ws_default = wb.active
+    ws_default.title = "Overview"
 
-    for vessel, ops in data.items():
-        ws = wb.create_sheet(title=vessel[:31])
-        ws.append(["Operation", "Tid (min)", "Tid (hh:mm)"])
+    # Hvis der ingen data er
+    if not data:
+        ws_default.append(["Ingen KPI-data for valgt periode"])
+    else:
+        # Fjern default sheet først NÅR vi ved der kommer andre
+        wb.remove(ws_default)
 
-        total = 0
-        for op, minutes in ops.items():
-            total += minutes
-            ws.append([
-                op,
-                minutes,
-                f"{minutes // 60:02d}:{minutes % 60:02d}"
-            ])
+        for vessel, ops in data.items():
+            ws = wb.create_sheet(title=vessel[:31])
+            ws.append(["Operation", "Tid (min)", "Tid (hh:mm)"])
 
-        ws.append([])
-        ws.append(["TOTAL", total, f"{total // 60:02d}:{total % 60:02d}"])
+            total = 0
+            for op, minutes in ops.items():
+                total += minutes
+                ws.append([
+                    op,
+                    minutes,
+                    f"{minutes // 60:02d}:{minutes % 60:02d}"
+                ])
+
+            ws.append([])
+            ws.append(["TOTAL", total, f"{total // 60:02d}:{total % 60:02d}"])
 
     stream = io.BytesIO()
     wb.save(stream)
