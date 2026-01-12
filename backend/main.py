@@ -120,14 +120,26 @@ def get_daily_reports(project_id: int):
         ORDER BY v.name
     """, (project_id,)).fetchall()
 
-    return [
-        {
-            "id": r[0],
-            "date": r[1],
-            "vessel": r[2],
-            "vessel_type": r[3]
-        } for r in rows
-    ]
+   return [
+    {
+        "id": dr.id,
+        "date": dr.date,
+        "vessel_name": dr.vessel.name,
+        "vessel_type": dr.vessel.vessel_type,
+        "operations": [
+            {
+                "id": op.id,
+                "start_time": op.start_time,
+                "end_time": op.end_time,
+                "operation_type": op.operation_type,
+                "comment": op.comment
+            }
+            for op in dr.operations
+        ]
+    }
+    for dr in daily_reports
+]
+
 
 # =========================
 # OPERATIONS
@@ -270,3 +282,4 @@ def export_kpi_excel(project_id: int, year: int, month: int):
             f"attachment; filename=KPI_Project_{project_id}_{year}-{month:02d}.xlsx"
         }
     )
+
