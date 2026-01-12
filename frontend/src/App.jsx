@@ -90,10 +90,9 @@ export default function App() {
 
   /* -------------------- OPERATIONS -------------------- */
 
-  
   const addOperation = async () => {
   if (!startTime || !endTime) {
-    alert("Angiv start og slut");
+    alert("Angiv start og slut tid");
     return;
   }
 
@@ -115,12 +114,16 @@ export default function App() {
 
   setDailyReports(updatedReports);
 
-  // 🔑 VIGTIGT: find og gen-sæt aktiv rapport
-  const updatedSelected = updatedReports.find(
+  // 🔑 BEVAR selectedReport SIKKERT
+  const refreshed = updatedReports.find(
     r => r.id === selectedReport.id
   );
 
-  setSelectedReport(updatedSelected);
+  setSelectedReport(
+    refreshed
+      ? { ...refreshed, operations: refreshed.operations || [] }
+      : selectedReport
+  );
 
   setStartTime("");
   setEndTime("");
@@ -220,16 +223,20 @@ export default function App() {
           <input placeholder="Kommentar" value={comment} onChange={e => setComment(e.target.value)} />
           <button onClick={addOperation}>Tilføj operation</button>
 
-          <ul>
-            {selectedReport.operations?.map(op => (
-              <li key={op.id}>
-                {op.start_time}-{op.end_time} | {op.operation_type} | {op.comment}
-              </li>
-            ))}
-          </ul>
+          <ul>{selectedReport?.operations?.length > 0 && (
+  <ul>
+    {selectedReport.operations.map(op => (
+      <li key={op.id}>
+        {op.start_time}–{op.end_time} | {op.operation_type}
+      </li>
+    ))}
+  </ul>
+)}
+
         </>
       )}
     </div>
   );
 }
+
 
