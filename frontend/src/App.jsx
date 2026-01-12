@@ -22,6 +22,7 @@ export default function App() {
 
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState("");
+  const [kpiMonth, setKpiMonth] = React.useState("");
 
   // =====================
   // DAILY REPORTS
@@ -266,4 +267,5 @@ export default function App() {
 >
   Download Excel
 </button>
+
 
