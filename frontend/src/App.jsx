@@ -268,4 +268,30 @@ export default function App() {
   Download Excel
 </button>
 
+const downloadKpiExcel = async () => {
+  if (!selectedProject || !kpiMonth) return;
+
+  const [year, month] = kpiMonth.split("-");
+
+  const url = `${API_BASE}/projects/${selectedProject.id}/kpi/${year}/${month}/excel`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    alert("Kunne ikke generere KPI-fil");
+    return;
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = downloadUrl;
+  a.download = `KPI_${selectedProject.name}_${year}-${month}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
 
