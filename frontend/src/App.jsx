@@ -90,33 +90,43 @@ export default function App() {
 
   /* -------------------- OPERATIONS -------------------- */
 
+  
   const addOperation = async () => {
-    if (!startTime || !endTime) {
-      alert("Angiv start og slut");
-      return;
-    }
+  if (!startTime || !endTime) {
+    alert("Angiv start og slut");
+    return;
+  }
 
-    await fetch(`${API_BASE}/operations/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        daily_report_id: selectedReport.id,
-        start_time: startTime,
-        end_time: endTime,
-        operation_type: operationType,
-        comment: comment
-      })
-    });
+  await fetch(`${API_BASE}/operations/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      daily_report_id: selectedReport.id,
+      start_time: startTime,
+      end_time: endTime,
+      operation_type: operationType,
+      comment: comment
+    })
+  });
 
-    const updated = await fetch(
-      `${API_BASE}/projects/${selectedProject.id}/daily-reports/`
-    ).then(r => r.json());
+  const updatedReports = await fetch(
+    `${API_BASE}/projects/${selectedProject.id}/daily-reports/`
+  ).then(r => r.json());
 
-    setDailyReports(updated);
-    setStartTime("");
-    setEndTime("");
-    setComment("");
-  };
+  setDailyReports(updatedReports);
+
+  // 🔑 VIGTIGT: find og gen-sæt aktiv rapport
+  const updatedSelected = updatedReports.find(
+    r => r.id === selectedReport.id
+  );
+
+  setSelectedReport(updatedSelected);
+
+  setStartTime("");
+  setEndTime("");
+  setComment("");
+};
+
 
   /* -------------------- KPI EXCEL -------------------- */
 
@@ -222,3 +232,4 @@ export default function App() {
     </div>
   );
 }
+
