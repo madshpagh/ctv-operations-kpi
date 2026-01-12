@@ -125,3 +125,16 @@ def setup(data: dict):
         "vessel_id": vessel_id,
         "daily_report_id": report_id
     }
+@app.get("/projects/")
+def get_projects():
+    rows = cursor.execute(
+        "SELECT id, name FROM projects ORDER BY name"
+    ).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "name": row[1]
+        }
+        for row in rows
+    ]
