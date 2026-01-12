@@ -90,12 +90,18 @@ export default function App() {
 
   /* -------------------- OPERATIONS -------------------- */
 
-  const addOperation = async () => {
-  if (!startTime || !endTime) {
-    alert("Angiv start og slut tid");
+const addOperation = async () => {
+  if (!selectedReport) {
+    alert("Ingen daglig rapport valgt");
     return;
   }
 
+  if (!startTime || !endTime) {
+    alert("Angiv start- og sluttid");
+    return;
+  }
+
+  // 1️⃣ Opret operation i backend
   await fetch(`${API_BASE}/operations/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -108,23 +114,30 @@ export default function App() {
     })
   });
 
+  // 2️⃣ Hent ALLE opdaterede daglige rapporter for projektet
   const updatedReports = await fetch(
     `${API_BASE}/projects/${selectedProject.id}/daily-reports/`
-  ).then(r => r.json());
+  ).then(res => res.json());
 
+  // 3️⃣ Opdatér state
   setDailyReports(updatedReports);
 
-  // 🔑 BEVAR selectedReport SIKKERT
-  const refreshed = updatedReports.find(
+  // 4️⃣ Find den opdaterede version af den aktive rapport
+  const refreshedReport = updatedReports.find(
     r => r.id === selectedReport.id
   );
 
+  // 5️⃣ KRITISK: behold rapporten hvis backend ikke returnerer den
   setSelectedReport(
-    refreshed
-      ? { ...refreshed, operations: refreshed.operations || [] }
+    refreshedReport
+      ? {
+          ...refreshedReport,
+          operations: refreshedReport.operations || []
+        }
       : selectedReport
   );
 
+  // 6️⃣ Ryd inputfelter
   setStartTime("");
   setEndTime("");
   setComment("");
@@ -238,5 +251,6 @@ export default function App() {
     </div>
   );
 }
+
 
 
