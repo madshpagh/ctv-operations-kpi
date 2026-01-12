@@ -125,16 +125,18 @@ def setup(data: dict):
         "vessel_id": vessel_id,
         "daily_report_id": report_id
     }
-@app.get("/projects/")
-def get_projects():
-    rows = cursor.execute(
-        "SELECT id, name FROM projects ORDER BY name"
-    ).fetchall()
+@app.get("/projects/{project_id}/daily-reports")
+def get_daily_reports_for_project(project_id: int):
+    project = next((p for p in projects if p["id"] == project_id), None)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    return [
-        {
-            "id": row[0],
-            "name": row[1]
-        }
-        for row in rows
+    project_reports = [
+        r for r in daily_reports
+        if r["project_id"] == project_id
     ]
+
+    # sorter efter dato (nyeste nederst / øverst – vælg selv)
+    project_reports.sort(key=lambda r: r["date"])
+
+    return project_reports
